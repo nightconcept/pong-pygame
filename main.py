@@ -1,44 +1,93 @@
-import pygame
-import os
 from enum import Enum
-import random
 import math
+import os
+import pygame
+import random
+
+
+# Inits required first
+pygame.init()
 pygame.font.init()
 pygame.mixer.init()
 
-WINDOW_WIDTH, WINDOW_HEIGHT = 858, 525
-WIN = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-pygame.display.set_caption("Pong")
-
+# Constants
+## Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
+## Events
+class GameEvents(Enum):
+    P1_SCORED = pygame.USEREVENT + 1
+    P2_SCORED = pygame.USEREVENT + 2
+
+## Fonts
+SCORE_FONT = pygame.font.Font(os.path.join('assets', 'bit5x3.ttf'), 50)
+START_FONT = pygame.font.Font(os.path.join('assets', 'bit5x3.ttf'), 20)
+
+## Game Specific
+PLAYER_VEL = 30
+BALL_START_VEL = 6
+PADDLE_HEIGHT = 60
+PADDLE_WIDTH = 15
+MAX_BOUNCE_ANGLE = 45
+PLAYER_AREA_MARGIN = 10
+
+## General Settings
+FPS = 60
+WINDOW_WIDTH, WINDOW_HEIGHT = 858, 525
+
+## Sounds
 BALL_HIT_SOUND_1 = pygame.mixer.Sound(os.path.join('assets', 'ping_pong_8bit_plop.ogg'))
 BALL_HIT_SOUND_2 = pygame.mixer.Sound(os.path.join('assets', 'ping_pong_8bit_beeep.ogg'))
+SCORE_SOUND = pygame.mixer.Sound(os.path.join('assets', 'ping_pong_8bit_peeeeeep.ogg'))
+
+## States
+class GameStates(Enum):
+    READY = 1
+    PLAYING = 2
+
+# Classes
+## Window
+class Window:
+    def __init__(width, height, caption):
+        self.win = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        pygame.display.set_caption(caption)
+
+    def draw():
+        self.win.fill(BLACK)
+
+        pygame.display.update()
+## Paddle
+class Paddle:
+    def __init__(x, y, width, height, player):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.player = player
+    
+    def handle_movement():
+        if self.player == 1:
+            if keys_pressed[pygame.K_w] and self.rect.y - PLAYER_VEL > PLAYER_AREA_MARGIN: # UP
+                player1.y -= PLAYER_VEL
+            if keys_pressed[pygame.K_s] and selft.rect.y + PLAYER_VEL + self.rect.height < WINDOW_HEIGHT - PLAYER_AREA_MARGIN: # DOWN
+                player1.y += PLAYER_VEL
+        else:
+            if keys_pressed[pygame.K_UP] and self.rect.y - PLAYER_VEL > 10: # UP
+                self.rect.y -= PLAYER_VEL
+            if keys_pressed[pygame.K_DOWN] and self.rect.y + PLAYER_VEL + self.rect.height < WINDOW_HEIGHT - 10: # DOWN
+                self.rect.y += PLAYER_VEL
+
+## Ball
+class Ball:
+    """The ball that is hit by the paddles in pong"""
+    def __init__(x, y):
+        self.x = x
+        self.y = y``
+
 BALL_HIT_SOUND_1.set_volume(0.2)
 BALL_HIT_SOUND_2.set_volume(0.2)
-SCORE_SOUND = pygame.mixer.Sound(os.path.join('assets', 'ping_pong_8bit_peeeeeep.ogg'))
 SCORE_SOUND.set_volume(0.2)
 
 # TODO: Make a dotted line border
 BORDER = pygame.Rect(WINDOW_WIDTH//2 - 5, 0, 10, WINDOW_HEIGHT)
-
-# GAME STATES
-class GameState(Enum):
-    READY = 1
-    PLAYING = 2
-
-SCORE_FONT = pygame.font.Font(os.path.join('assets', 'bit5x3.ttf'), 50)
-START_FONT = pygame.font.Font(os.path.join('assets', 'bit5x3.ttf'), 20)
-
-FPS = 60
-PLAYER_VEL = 30
-BALL_START_VEL = 6
-PADDLE_WIDTH, PADDLE_HEIGHT = 15, 60
-MAX_BOUNCE_ANGLE = 45
-
-P1_SCORED = pygame.USEREVENT + 1
-P2_SCORED = pygame.USEREVENT + 2
 
 
 def draw_window(player1, player2, ball, player1_score, player2_score):
