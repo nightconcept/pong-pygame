@@ -10,7 +10,7 @@ pygame.init()
 pygame.font.init()
 pygame.mixer.init()
 
-# Constants
+# Constants and configuration
 ## Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -29,11 +29,16 @@ PLAYER_VEL = 30
 BALL_START_VEL = 6
 PADDLE_HEIGHT = 60
 PADDLE_WIDTH = 15
+PADDLE_P1_X_START = 100
+PADDLE_P2_X_START = 700
+PADDLE_Y_START = 700
 MAX_BOUNCE_ANGLE = 45
 PLAYER_AREA_MARGIN = 10
 
-## General Settings
+## Screen and settings
 FPS = 60
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+pygame.display.set_caption('Pong')
 WINDOW_WIDTH, WINDOW_HEIGHT = 858, 525
 
 ## Sounds
@@ -47,28 +52,21 @@ class GameStates(Enum):
     PLAYING = 2
 
 # Classes
-## Window
-class Window:
-    def __init__(width, height, caption):
-        self.win = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-        pygame.display.set_caption(caption)
-
-    def draw():
-        self.win.fill(BLACK)
-
-        pygame.display.update()
 ## Paddle
 class Paddle:
-    def __init__(x, y, width, height, player):
+    def __init__(self, x, y, width, height, player):
         self.rect = pygame.Rect(x, y, width, height)
         self.player = player
+        self.score = 0
+        self.width = width
+        self.height = height
     
-    def handle_movement():
+    def handle_movement(keys_pressed):
         if self.player == 1:
             if keys_pressed[pygame.K_w] and self.rect.y - PLAYER_VEL > PLAYER_AREA_MARGIN: # UP
-                player1.y -= PLAYER_VEL
-            if keys_pressed[pygame.K_s] and selft.rect.y + PLAYER_VEL + self.rect.height < WINDOW_HEIGHT - PLAYER_AREA_MARGIN: # DOWN
-                player1.y += PLAYER_VEL
+                self.rect.y -= PLAYER_VEL
+            if keys_pressed[pygame.K_s] and self.rect.y + PLAYER_VEL + self.rect.height < WINDOW_HEIGHT - PLAYER_AREA_MARGIN: # DOWN
+                self.rect.y += PLAYER_VEL
         else:
             if keys_pressed[pygame.K_UP] and self.rect.y - PLAYER_VEL > 10: # UP
                 self.rect.y -= PLAYER_VEL
@@ -80,7 +78,10 @@ class Ball:
     """The ball that is hit by the paddles in pong"""
     def __init__(x, y):
         self.x = x
-        self.y = y``
+        self.y = y
+        self.x_vel = 0
+        self.y_vel = 0
+        self.ball = pygame.draw.circle()
 
 BALL_HIT_SOUND_1.set_volume(0.2)
 BALL_HIT_SOUND_2.set_volume(0.2)
@@ -169,16 +170,8 @@ def start_ball(ball):
         ball['y_vel'] *= -1
 
 def main():
-    player1 = pygame.Rect(100, 300, PADDLE_WIDTH, PADDLE_HEIGHT)
-    player2 = pygame.Rect(700, 300, PADDLE_WIDTH, PADDLE_HEIGHT)
-    ball = {
-        "x_vel": 0,
-        "y_vel": 0,
-        "rect": pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2, 8,8)
-    }
-    
-    player1_score = 0
-    player2_score = 0
+    player1 = Paddle(PADDLE_P1_X_START, PADDLE_Y_START, PADDLE_WIDTH, PADDLE_HEIGHT, 1)
+    player2 = Paddle(PADDLE_P2_X_START, PADDLE_Y_START, PADDLE_WIDTH, PADDLE_HEIGHT, 2)
 
     game_state = GameState.READY
     start_text = "Press space to start a round"
@@ -214,6 +207,7 @@ def main():
 
         keys_pressed = pygame.key.get_pressed()
         if game_state == GameState.PLAYING:
+
             handle_player1_movement(keys_pressed, player1)
             handle_player2_movement(keys_pressed, player2)
             handle_ball(ball, player1, player2)
