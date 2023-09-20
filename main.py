@@ -9,7 +9,7 @@ pygame.init()
 pygame.font.init()
 pygame.mixer.init()
 
-# Constants
+# Constants and configuration
 ## Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -35,6 +35,9 @@ BALL_RADIUS = 5
 BALL_START_VEL = 6
 PADDLE_HEIGHT = 60
 PADDLE_WIDTH = 15
+PADDLE_P1_X_START = 100
+PADDLE_P2_X_START = 700
+PADDLE_Y_START = 700
 MAX_BOUNCE_ANGLE = 45
 PLAYER_AREA_MARGIN = 10
 P1_STARTING_X = 100
@@ -42,7 +45,7 @@ P1_STARTING_Y = 300
 P2_STARTING_X = 700
 P2_STARTING_Y = 300
 
-## General Settings
+## Screen and settings
 FPS = 60
 VOLUME = 0.3
 WINDOW_WIDTH, WINDOW_HEIGHT = 858, 525 # Based on actual pong resolution
@@ -71,7 +74,7 @@ class Window:
 
 ## Paddle
 class Paddle:
-    def __init__(self, x, y, width, height, player):
+    def __init__(x, y, width, height, player):
         self.rect = pygame.Rect(x, y, width, height)
         self.player = player
         self.score = 0
