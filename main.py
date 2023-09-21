@@ -15,10 +15,12 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 ## Controls
-CONTROL_P1_UP = pygame.K_w
-CONTROL_P1_DOWN = pygame.K_s
-CONTROL_P2_UP = pygame.K_UP
-CONTROL_P2_DOWN = pygame.K_DOWN
+P1_CONTROL_UP = pygame.K_w
+P1_CONTROL_DOWN = pygame.K_s
+P1_CONTROL_BINDS = [P1_CONTROL_UP, P1_CONTROL_DOWN]
+P2_CONTROL_UP = pygame.K_UP
+P2_CONTROL_DOWN = pygame.K_DOWN
+P2_CONTROL_BINDS = [P2_CONTROL_UP, P2_CONTROL_DOWN]
 
 ## Events
 P1_SCORED = pygame.USEREVENT + 1
@@ -34,10 +36,7 @@ BALL_RADIUS = 5
 BALL_START_VEL = 6
 PADDLE_HEIGHT = 60
 PADDLE_WIDTH = 15
-PADDLE_P1_X_START = 100
-PADDLE_P2_X_START = 700
-PADDLE_Y_START = 700
-MAX_BOUNCE_ANGLE = 45
+MAX_BOUNCE_ANGLE = 35
 PLAYER_AREA_MARGIN = 10
 P1_STARTING_X = 100
 P1_STARTING_Y = 300
@@ -101,24 +100,21 @@ class Window:
 ## Paddle
 class Paddle:
     """Paddle class that represents a player and score element in pong"""
-    def __init__(self, window, x, y, width, height, player):
+    def __init__(self, window, x, y, width, height, player, control_binds):
         self.rect = pygame.Rect(x, y, width, height)
         self.player = player
         self.score = 0
         self.window = window
+        self.control_binds = control_binds
+        self.KEYBIND_UP = 0
+        self.KEYBIND_DOWN = 1
     
     # TODO: Improve the way a bind is handled instead of hard coding a player mapping here
     def handle_movement(self, keys_pressed):
-        if self.player == 1:
-            if keys_pressed[CONTROL_P1_UP] and self.rect.y - PLAYER_VEL > PLAYER_AREA_MARGIN: # UP
-                self.rect.y -= PLAYER_VEL
-            if keys_pressed[CONTROL_P1_DOWN] and self.rect.y + PLAYER_VEL + self.rect.height < WINDOW_HEIGHT - PLAYER_AREA_MARGIN: # DOWN
-                self.rect.y += PLAYER_VEL
-        else:
-            if keys_pressed[CONTROL_P2_UP] and self.rect.y - PLAYER_VEL > PLAYER_AREA_MARGIN: # UP
-                self.rect.y -= PLAYER_VEL
-            if keys_pressed[CONTROL_P2_DOWN] and self.rect.y + PLAYER_VEL + self.rect.height < WINDOW_HEIGHT - PLAYER_AREA_MARGIN: # DOWN
-                self.rect.y += PLAYER_VEL
+        if keys_pressed[self.control_binds[self.KEYBIND_UP]] and self.rect.y - PLAYER_VEL > PLAYER_AREA_MARGIN: # UP
+            self.rect.y -= PLAYER_VEL
+        if keys_pressed[self.control_binds[self.KEYBIND_DOWN]] and self.rect.y + PLAYER_VEL + self.rect.height < WINDOW_HEIGHT - PLAYER_AREA_MARGIN: # DOWN
+            self.rect.y += PLAYER_VEL
     
     def scored(self, points = 1):
         self.score += points
@@ -216,8 +212,8 @@ class Border:
 
 def main():
     window = Window(WINDOW_WIDTH, WINDOW_HEIGHT, "Pong")
-    player1 = Paddle(window.get_surface(), P1_STARTING_X, P1_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT, 1)
-    player2 = Paddle(window.get_surface(), P2_STARTING_X, P2_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT, 2)
+    player1 = Paddle(window.get_surface(), P1_STARTING_X, P1_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT, 1, P1_CONTROL_BINDS)
+    player2 = Paddle(window.get_surface(), P2_STARTING_X, P2_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT, 2, P2_CONTROL_BINDS)
     ball = Ball(window.get_surface())
     border = Border(window.get_surface())
     paddles = [player1, player2]
