@@ -108,8 +108,7 @@ class Paddle:
         self.control_binds = control_binds
         self.KEYBIND_UP = 0
         self.KEYBIND_DOWN = 1
-    
-    # TODO: Improve the way a bind is handled instead of hard coding a player mapping here
+
     def handle_movement(self, keys_pressed):
         if keys_pressed[self.control_binds[self.KEYBIND_UP]] and self.rect.y - PLAYER_VEL > PLAYER_AREA_MARGIN: # UP
             self.rect.y -= PLAYER_VEL
@@ -169,8 +168,6 @@ class Ball:
                 if paddle.get_player() == 2 and self.x_vel > 0:
                     self.x_vel *= -1
                 self.debounce_frame_count = 0
-                print("normalized_relative_intersection_y: " + str(normalized_relative_intersection_y) + ", intersect_y: " + str(intersect_y) + 
-                    ", x_vel: " + str(self.x_vel) + ", y_vel: " + str(self.y_vel))
                 self.play_random_ball_hit_sound()
 
         if self.rect.y < 0:
