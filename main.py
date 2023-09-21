@@ -197,12 +197,6 @@ class Border:
     def draw(self):
         pygame.draw.rect(self.window, WHITE, self.rect)
 
-def draw_start_text(text):
-    draw_text = START_FONT.render(text, 1, WHITE)
-    WIN.blit(draw_text, (WINDOW_WIDTH//2 - draw_text.get_width()//2, (WINDOW_HEIGHT//4)*3 - draw_text.get_height()//2))
-    pygame.display.update()
-    pygame.time.delay(500)
-
 def main():
     window = Window(WINDOW_WIDTH, WINDOW_HEIGHT, "Pong")
     player1 = Paddle(window.get_surface(), P1_STARTING_X, P1_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT, 1)
