@@ -44,6 +44,7 @@ P1_STARTING_Y = 300
 P2_STARTING_X = 700
 P2_STARTING_Y = 300
 SCORE_DELAY_TIME = 2000
+FRAME_DEBOUNCE_THRESHOLD = 30
 
 ## Screen and settings
 FPS = 60
@@ -73,7 +74,6 @@ class Window:
         self.draw_items = []
         pygame.display.set_caption(caption)
 
-    # TODO: Before using this class type in another game and draw order may be important, this draw order
     # may become relevant at some point
     def draw(self):
         self.win.fill(BLACK)
@@ -129,6 +129,9 @@ class Paddle:
     def get_rect(self):
         return self.rect
 
+    def get_player(self):
+        return self.player
+
     def draw(self):
         pygame.draw.rect(self.window, WHITE, self.rect)
         score = SCORE_FONT.render(str(self.score), TEXT_ANTIALIAS_TRUE, WHITE)
@@ -143,6 +146,7 @@ class Ball:
     """The ball that is hit by the paddles in pong"""
     def __init__(self, window):
         self.window = window
+        self.debounce_frame_count = 0
 
     def spawn(self, x = WINDOW_WIDTH//2, y = WINDOW_HEIGHT//2):
         self.rect = pygame.draw.circle(self.window, WHITE, (x, y), BALL_RADIUS)
@@ -157,13 +161,20 @@ class Ball:
         self.rect.x += self.x_vel
         self.rect.y += self.y_vel
         for paddle in paddles:
-            if self.rect.colliderect(paddle):
-                # TODO: collision physics
-                intersect_y = (paddle.centery + PADDLE_HEIGHT//2) - self.rect.centery
-                normalized_relative_intersection_y = intersect_y/(PADDLE_HEIGHT//2)
+            paddle_rect = paddle.get_rect()
+            if self.rect.colliderect(paddle_rect) and self.check_debounce():
+                intersect_y = abs(paddle_rect.centery - self.rect.centery)
+                normalized_relative_intersection_y = intersect_y/PADDLE_HEIGHT
                 bounce_angle = normalized_relative_intersection_y * MAX_BOUNCE_ANGLE
                 self.x_vel = round(BALL_START_VEL * math.cos(bounce_angle))
                 self.y_vel = round(BALL_START_VEL * math.sin(bounce_angle))
+                if paddle.get_player() == 1 and self.x_vel < 0:
+                    self.x_vel *= -1
+                if paddle.get_player() == 2 and self.x_vel > 0:
+                    self.x_vel *= -1
+                self.debounce_frame_count = 0
+                print("normalized_relative_intersection_y: " + str(normalized_relative_intersection_y) + ", intersect_y: " + str(intersect_y) + 
+                    ", x_vel: " + str(self.x_vel) + ", y_vel: " + str(self.y_vel))
                 self.play_random_ball_hit_sound()
 
         if self.rect.y < 0:
@@ -184,7 +195,13 @@ class Ball:
         else:
             BALL_HIT_SOUND_2.play()
 
+    def check_debounce(self):
+        if self.debounce_frame_count < FRAME_DEBOUNCE_THRESHOLD:
+            return False
+        return True
+
     def draw(self):
+        self.debounce_frame_count += 1
         pygame.draw.rect(self.window, WHITE, self.rect)
 
 ## Border
@@ -203,7 +220,7 @@ def main():
     player2 = Paddle(window.get_surface(), P2_STARTING_X, P2_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT, 2)
     ball = Ball(window.get_surface())
     border = Border(window.get_surface())
-    paddles = [player1.get_rect(), player2.get_rect()]
+    paddles = [player1, player2]
 
     window.add_draw_item(player1)
     window.add_draw_item(player2)
