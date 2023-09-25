@@ -1,1 +1,2 @@
 pygame-ce==2.3.2
+esper==3.0

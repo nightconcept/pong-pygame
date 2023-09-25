@@ -3,6 +3,7 @@ import math
 import os
 import pygame
 import random
+import esper
 
 # Inits required first
 pygame.init()
@@ -43,7 +44,6 @@ P1_STARTING_Y = 300
 P2_STARTING_X = 700
 P2_STARTING_Y = 300
 SCORE_DELAY_TIME = 2000
-FRAME_DEBOUNCE_THRESHOLD = 30
 
 ## Screen and settings
 FPS = 60
@@ -69,19 +69,14 @@ class GameStates(Enum):
 class Window:
     """Window class that is the pygame display and manages all the items that need to be drawn on screen"""
     def __init__(self, width, height, caption):
-        self.win = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-        self.draw_items = []
+        self.window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         pygame.display.set_caption(caption)
 
     # may become relevant at some point
-    def draw(self):
-        self.win.fill(BLACK)
-        for item in self.draw_items:
-            item.draw()
-        pygame.display.update()
-
-    def add_draw_item(self, item):
-        self.draw_items.append(item)
+    def process(self):
+        self.window.fill(BLACK)
+        self.esper.process()
+        pygame.display.flip()
 
     def get_game_state(self):
         return self.game_state
@@ -93,9 +88,6 @@ class Window:
         draw_text = START_FONT.render(text, TEXT_ANTIALIAS_TRUE, WHITE)
         self.win.blit(draw_text, (WINDOW_WIDTH//2 - draw_text.get_width()//2, (WINDOW_HEIGHT//4)*3 - draw_text.get_height()//2))
         pygame.display.update()
-
-    def get_surface(self):
-        return self.win
 
 ## Paddle
 class Paddle:
@@ -206,19 +198,118 @@ class Border:
 
     def draw(self):
         pygame.draw.rect(self.window, WHITE, self.rect)
+    
+class Velocity:
+    def __init__(self, x=0.0, y=0.0):
+        self.x = x
+        self.y = y
+
+class RenderableRect:
+    def __init__(self, Rect: rect):
+        self.rect = rect
+
+class Collidable:
+    def __init__(self, frame_collide_threshold, collidable_type):
+        self.frame_collide_threshold = frame_collide_threshold
+        self.collidable_type = collidable_type
+
+class ControlBindings:
+    def __init__(self, control_binds):
+        self.control_binds = control_binds
+        self.KEYBIND_UP = 0
+        self.KEYBIND_DOWN = 1        
+
+class MovementProcessor(esper.Processor):
+    def __init__(self, minx, maxx, miny, maxy):
+        super().__init__()
+        self.minx = minx
+        self.maxx = maxx
+        self.miny = miny
+        self.maxy = maxy
+
+    def process(self):
+        for ent, (vel, rend) in esper.get_components(Velocity, Renderable):
+            # Update the renderable component's position by it's velocity:
+            rend.x += vel.x
+            rend.y += vel.y
+            # Keep the sprite inside boundaries
+            rend.x = max(self.minx, rend.x)
+            rend.y = max(self.miny, rend.y)
+            rend.x = min(self.maxx - rend.w, rend.x)
+            rend.y = min(self.maxy - rend.h, rend.y)
+
+class RenderProcessor(esper.Processor):
+    def __init__(self, window, clear_color=(0,0,0)):
+        super().__init__()
+        self.window = window
+        self.clear_color = clear_color
+
+    def process(self):
+        self.window.fill(self.clear_color)
+        for ent, rend in esper.get_component(Renderable):
+            self.window.blit(rend.image, (rend.x, rend.y))
+        pygame.display.flip()
+
+class CollisionProcessor(esper.Processor):
+    def __init__(self):
+        super().__init__()
+        self.collision_frame_debounce_count = 0
+        self.FRAME_DEBOUNCE_THRESHOLD = 30
+
+    def process(self):
+        self.debounce_frames += 1
+        paddles_rect = []
+        for ent, (rend, collide) in esper.get_components(RenderableRect, Collidable):
+            # append to a list of all objects that can collide
+            if collide.collidable_type == 'paddle':
+                paddles_rect.append(rend.rect)
+            elif collid.collidable_type == 'ball':
+                ball_rect = rend.rect
+
+            ball_rect = esper.component_for_entity(ball, RenderableRect)
+            for paddle_rect in paddles_rect:
+                if ball_rect.colliderect(paddle_rect) and self.check_debounce():
+                    intersect_y = abs(paddle_rect.centery - ball_rect.centery)
+                    normalized_relative_intersection_y = intersect_y/PADDLE_HEIGHT
+                    bounce_angle = normalized_relative_intersection_y * MAX_BOUNCE_ANGLE
+                    self.x_vel = round(BALL_START_VEL * math.cos(bounce_angle))
+                    self.y_vel = round(BALL_START_VEL * math.sin(bounce_angle))
+                    if paddle.get_player() == 1 and self.x_vel < 0:
+                        self.x_vel *= -1
+                    if paddle.get_player() == 2 and self.x_vel > 0:
+                        self.x_vel *= -1
+                    self.collision_frame_debounce_count = 0
+                    self.play_random_ball_hit_sound()
+
+            if self.rect.y < 0:
+                self.y_vel *= -1
+
+            if self.rect.y > WINDOW_HEIGHT:
+                self.y_vel *= -1
+
+            if self.rect.x < 0:
+                pygame.event.post(pygame.event.Event(P2_SCORED))
+
+            if self.rect.x > WINDOW_WIDTH:
+                pygame.event.post(pygame.event.Event(P1_SCORED))
+    
+    def check_debounce(self):
+        if self.collision_frame_debounce_count < FRAME_DEBOUNCE_THRESHOLD:
+            return False
+        return True
+
+    
 
 def main():
+    player1 = esper.create_entity()
+    esper.add_component(player1, Velocity(x=0, y=0))
+    esper.add_component(player1, RenderableRect(pygame.Rect(P1_STARTING_X, P1_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT)))
+    esper.add_component(player1, Collidable(FRAME_DEBOUNCE_THRESHOLD, 'paddle'))
     window = Window(WINDOW_WIDTH, WINDOW_HEIGHT, "Pong")
-    player1 = Paddle(window.get_surface(), P1_STARTING_X, P1_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT, 1, P1_CONTROL_BINDS)
-    player2 = Paddle(window.get_surface(), P2_STARTING_X, P2_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT, 2, P2_CONTROL_BINDS)
+
     ball = Ball(window.get_surface())
     border = Border(window.get_surface())
     paddles = [player1, player2]
-
-    window.add_draw_item(player1)
-    window.add_draw_item(player2)
-    window.add_draw_item(ball)
-    window.add_draw_item(border)
     
     window.set_game_state(GameStates.READY)
     window.show_text("Press space to start round")
