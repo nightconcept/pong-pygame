@@ -44,6 +44,7 @@ P1_STARTING_Y = 300
 P2_STARTING_X = 700
 P2_STARTING_Y = 300
 SCORE_DELAY_TIME = 2000
+FRAME_DEBOUNCE_THRESHOLD = 30
 
 ## Screen and settings
 FPS = 60
@@ -200,8 +201,9 @@ class Velocity:
         self.y = y
 
 class RenderableRect:
-    def __init__(self, Rect: rect):
+    def __init__(self, rect: pygame.Rect, color):
         self.rect = rect
+        self.color = color
 
 class Collidable:
     def __init__(self, frame_collide_threshold, collidable_type):
@@ -217,23 +219,23 @@ class PlayerInfo:
         self.KEYBIND_DOWN = 1        
 
 class MovementProcessor(esper.Processor):
-    def __init__(self, minx, maxx, miny, maxy):
+    def __init__(self, min_x, max_x, min_y, max_y):
         super().__init__()
-        self.minx = minx
-        self.maxx = maxx
-        self.miny = miny
-        self.maxy = maxy
+        self.min_x = min_x
+        self.max_x = max_x
+        self.min_y = min_y
+        self.max_y = max_y
 
     def process(self):
-        for ent, (vel, rend) in esper.get_components(Velocity, Renderable):
+        for ent, (vel, rend) in esper.get_components(Velocity, RenderableRect):
             # Update the renderable component's position by it's velocity:
-            rend.x += vel.x
-            rend.y += vel.y
+            rend.rect.x += vel.x
+            rend.rect.y += vel.y
             # Keep the sprite inside boundaries
-            rend.x = max(self.minx, rend.x)
-            rend.y = max(self.miny, rend.y)
-            rend.x = min(self.maxx - rend.w, rend.x)
-            rend.y = min(self.maxy - rend.h, rend.y)
+            rend.rect.x = max(self.min_x, rend.rect.x)
+            rend.rect.y = max(self.min_y, rend.rect.y)
+            rend.rect.x = min(self.max_x - rend.rect.w, rend.rect.x)
+            rend.rect.y = min(self.max_y - rend.rect.h, rend.rect.y)
 
 class RenderProcessor(esper.Processor):
     def __init__(self, window, clear_color=(0,0,0)):
@@ -242,10 +244,38 @@ class RenderProcessor(esper.Processor):
         self.clear_color = clear_color
 
     def process(self):
-        self.window.fill(self.clear_color)
-        for ent, rend in esper.get_component(Renderable):
-            self.window.blit(rend.image, (rend.x, rend.y))
+        surface = pygame.display.get_surface()
+        surface.fill(self.clear_color)
+        for ent, rend in esper.get_component(RenderableRect):
+            pygame.draw.rect(surface=surface, color=rend.color, rect=rend.rect)
+
         pygame.display.flip()
+
+class CollisionPaddle:
+    def __init__(self, velo, rect, collide, player):
+        self.velo = velo
+        self.rect = rect
+        self.collide = collide
+        self.player = player
+
+class CollisionBall:
+    def __init__(self, velo, circle, collide):
+        self.velo = velo
+        self.circle = circle
+        self.collide = collide
+
+def _get_paddles():
+    paddles = []
+    for _ent, (velo, rend, collide, player) in esper.get_components(Velocity, RenderableRect, Collidable, PlayerInfo):
+        if collide.collidable_type == CollidableTypes.PADDLE:
+            paddles.append(CollisionPaddle(velo, rend, collide, player))
+    return paddles
+
+def _get_ball():
+    for _ent, (velo, rend, collide) in esper.get_components(Velocity, RenderableCircle, Collidable):
+        if collide.collidable_type == CollidableTypes.BALL:
+            ball = CollisionBall(velo, rend, collide)
+    return ball
 
 class CollisionProcessor(esper.Processor):
     def __init__(self):
@@ -254,121 +284,89 @@ class CollisionProcessor(esper.Processor):
         self.FRAME_DEBOUNCE_THRESHOLD = 30
 
     def process(self):
-        PLAYER_NUMBER_IDX = 0
-        RECT_IDX = 1
-        self.debounce_frames += 1
-        paddles = []
-        # Get everything needed to handle collisions
-        for ent, (velo, rend, collide, player) in esper.get_components(Velocity, RenderableRect, Collidable, PlayerInfo):
-            if collide.collidable_type == CollidableTypes.PADDLE:
-                paddles.append((player.player_number, rend.rect))
-            elif collid.collidable_type == CollidableTypes.BALL:
-                ball_velo = velo
-                ball_rect = rend.rect
+        self.collision_frame_debounce_count += 1
+        paddles = _get_paddles()
+        ball = _get_ball()
 
         for paddle in paddles:
-            player_number = paddle[PLAYER_NUMBER_IDX]
-            paddle_rect = paddle[RECT_IDX]
-            if ball_rect.colliderect(paddle_rect) and self.check_debounce():
-                intersect_y = abs(paddle_rect.centery - ball_rect.centery)
+            if ball.circle.colliderect(paddle.rect) and self._check_debounce():
+                intersect_y = abs(paddle.rect.centery - ball.rect.centery)
                 normalized_relative_intersection_y = intersect_y/PADDLE_HEIGHT
                 bounce_angle = normalized_relative_intersection_y * MAX_BOUNCE_ANGLE
 
-                ball_velo.x = round(BALL_START_VEL * math.cos(bounce_angle))
-                ball_velo.y = round(BALL_START_VEL * math.sin(bounce_angle))
-                if paddle.get_player() == 1 and ball_velo.x < 0:
-                    ball_velo.x *= -1
-                if paddle.get_player() == 2 and ball_velo.x > 0:
-                    ball_velo.x *= -1
+                ball.velo.x = round(BALL_START_VEL * math.cos(bounce_angle))
+                ball.velo.y = round(BALL_START_VEL * math.sin(bounce_angle))
+                if paddle.player.player_number == 1 and ball.velo.x < 0:
+                    ball.velo.x *= -1
+                if paddle.player.player_number == 2 and ball.velo.x > 0:
+                    ball.velo.x *= -1
                 self.collision_frame_debounce_count = 0
-                self.play_random_ball_hit_sound()
+                self._play_random_ball_hit_sound()
 
-        if ball_rect.y < 0:
-            ball_velo.y *= -1
+        if ball.rect.y < 0:
+            ball.velo.y *= -1
 
-        if ball_rect.y > WINDOW_HEIGHT:
-            ball_velo.y *= -1
+        if ball.rect.y > WINDOW_HEIGHT:
+            ball.velo.y *= -1
 
-        if ball_rect.x < 0:
+        if ball.rect.x < 0:
             pygame.event.post(pygame.event.Event(P2_SCORED))
 
-        if ball_rect.x > WINDOW_WIDTH:
+        if ball.rect.x > WINDOW_WIDTH:
             pygame.event.post(pygame.event.Event(P1_SCORED))
     
-    def check_debounce(self):
+    def _check_debounce(self):
         if self.collision_frame_debounce_count < FRAME_DEBOUNCE_THRESHOLD:
             return False
         return True
 
-    def play_random_ball_hit_sound(self):
+    def _play_random_ball_hit_sound(self):
         if random.randint(0,1) == 1:
             BALL_HIT_SOUND_1.play()
         else:
             BALL_HIT_SOUND_2.play()
 
-    
 
 def main():
     window = Window(WINDOW_WIDTH, WINDOW_HEIGHT, "Pong")
 
+    # Add entities
     player1 = esper.create_entity()
     esper.add_component(player1, Velocity(x=0, y=0))
-    esper.add_component(player1, RenderableRect(pygame.Rect(P1_STARTING_X, P1_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT)))
+    esper.add_component(player1, RenderableRect(pygame.Rect(P1_STARTING_X, P1_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT), WHITE))
     esper.add_component(player1, Collidable(FRAME_DEBOUNCE_THRESHOLD, CollidableTypes.PADDLE))
     esper.add_component(player1, PlayerInfo(1, P1_CONTROL_BINDS))
 
     player2 = esper.create_entity()
     esper.add_component(player2, Velocity(x=0, y=0))
-    esper.add_component(player2, RenderableRect(pygame.Rect(P1_STARTING_X, P1_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT)))
+    esper.add_component(player2, RenderableRect(pygame.Rect(P2_STARTING_X, P2_STARTING_Y, PADDLE_WIDTH, PADDLE_HEIGHT), WHITE))
     esper.add_component(player2, Collidable(FRAME_DEBOUNCE_THRESHOLD, CollidableTypes.PADDLE))
     esper.add_component(player2, PlayerInfo(2, P2_CONTROL_BINDS))
 
     ball = esper.create_entity()
+    esper.add_component(ball, RenderableRect(pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2), BALL_RADIUS, BALL_RADIUS, WHITE))
+    esper.add_component(ball, Velocity(x=random.randint(BALL_START_VEL//2, BALL_START_VEL), y=random.randint(BALL_START_VEL//2, BALL_START_VEL)))
+    esper.add_component(ball, Collidable(FRAME_DEBOUNCE_THRESHOLD, CollidableTypes.BALL))
 
     border = esper.create_entity()
-    esper.add_component(border, RenderableRect(pygame.Rect(WINDOW_WIDTH//2 - 5, 0, 10, WINDOW_HEIGHT)))
+    #esper.add_component(border, RenderableRect(pygame.Rect(WINDOW_WIDTH//2 - 5, 0, 10, WINDOW_HEIGHT), WHITE))
 
-    ball = Ball(window.get_surface())
-    
-    window.set_game_state(GameStates.READY)
-    window.show_text("Press space to start round")
+    # Add processors
+    movement_processor = MovementProcessor(min_x=0, min_y=0, max_x=WINDOW_WIDTH, max_y=WINDOW_HEIGHT)
+    render_processor = RenderProcessor(window=window)
+    collision_processor = CollisionProcessor()
 
+    esper.add_processor(render_processor, priority=1)
+    esper.add_processor(collision_processor, priority=2)
+    esper.add_processor(movement_processor, priority=3)
+
+    # Run game
     clock = pygame.time.Clock()
     run = True
     while run:
         clock.tick(FPS)
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-        
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and window.get_game_state() == GameStates.READY:
-                    # Hide message to press space to start
-                    window.show_text("")
-                    window.set_game_state(GameStates.PLAYING)
-                    ball.spawn()
-            
-            if event.type == P1_SCORED:
-                player1.scored()
-                SCORE_SOUND.play()
-                window.show_text("Player 1 Scored!")
-                pygame.time.delay(SCORE_DELAY_TIME)
-                window.show_text("")
-                ball.spawn()
-            if event.type == P2_SCORED:
-                player2.scored()
-                SCORE_SOUND.play()
-                window.show_text("Player 2 Scored!")
-                pygame.time.delay(SCORE_DELAY_TIME)
-                window.show_text("")
-                ball.spawn()
-
-        keys_pressed = pygame.key.get_pressed()
-        if window.get_game_state() == GameStates.PLAYING:
-            player1.handle_movement(keys_pressed)
-            player2.handle_movement(keys_pressed)
-            ball.handle_movement(paddles)
-            window.draw()
+            esper.process()
 
     pygame.quit()
 
