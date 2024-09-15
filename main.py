@@ -205,6 +205,10 @@ class RenderableRect:
         self.rect = rect
         self.color = color
 
+class PlayerMovable:
+    def __init__(self, player_number):
+        self.player_number = player_number
+
 class Collidable:
     def __init__(self, frame_collide_threshold, collidable_type):
         self.frame_collide_threshold = frame_collide_threshold
@@ -237,6 +241,7 @@ class MovementProcessor(esper.Processor):
             rend.rect.x = min(self.max_x - rend.rect.w, rend.rect.x)
             rend.rect.y = min(self.max_y - rend.rect.h, rend.rect.y)
 
+# Render object on screen
 class RenderProcessor(esper.Processor):
     def __init__(self, window, clear_color=(0,0,0)):
         super().__init__()
@@ -272,7 +277,7 @@ def _get_paddles():
     return paddles
 
 def _get_ball():
-    for _ent, (velo, rend, collide) in esper.get_components(Velocity, RenderableCircle, Collidable):
+    for _ent, (velo, rend, collide) in esper.get_components(Velocity, RenderableRect, Collidable):
         if collide.collidable_type == CollidableTypes.BALL:
             ball = CollisionBall(velo, rend, collide)
     return ball
@@ -326,7 +331,6 @@ class CollisionProcessor(esper.Processor):
         else:
             BALL_HIT_SOUND_2.play()
 
-
 def main():
     window = Window(WINDOW_WIDTH, WINDOW_HEIGHT, "Pong")
 
@@ -344,7 +348,7 @@ def main():
     esper.add_component(player2, PlayerInfo(2, P2_CONTROL_BINDS))
 
     ball = esper.create_entity()
-    esper.add_component(ball, RenderableRect(pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2), BALL_RADIUS, BALL_RADIUS, WHITE))
+    esper.add_component(ball, RenderableRect(pygame.Rect(WINDOW_WIDTH//2, WINDOW_HEIGHT//2, BALL_RADIUS, BALL_RADIUS), WHITE))
     esper.add_component(ball, Velocity(x=random.randint(BALL_START_VEL//2, BALL_START_VEL), y=random.randint(BALL_START_VEL//2, BALL_START_VEL)))
     esper.add_component(ball, Collidable(FRAME_DEBOUNCE_THRESHOLD, CollidableTypes.BALL))
 
@@ -352,13 +356,13 @@ def main():
     #esper.add_component(border, RenderableRect(pygame.Rect(WINDOW_WIDTH//2 - 5, 0, 10, WINDOW_HEIGHT), WHITE))
 
     # Add processors
-    movement_processor = MovementProcessor(min_x=0, min_y=0, max_x=WINDOW_WIDTH, max_y=WINDOW_HEIGHT)
+    #movement_processor = MovementProcessor(min_x=0, min_y=0, max_x=WINDOW_WIDTH, max_y=WINDOW_HEIGHT)
     render_processor = RenderProcessor(window=window)
-    collision_processor = CollisionProcessor()
+    #collision_processor = CollisionProcessor()
 
     esper.add_processor(render_processor, priority=1)
-    esper.add_processor(collision_processor, priority=2)
-    esper.add_processor(movement_processor, priority=3)
+    #esper.add_processor(collision_processor, priority=2)
+    #esper.add_processor(movement_processor, priority=3)
 
     # Run game
     clock = pygame.time.Clock()
